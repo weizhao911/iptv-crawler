@@ -1,0 +1,14 @@
+{
+  "name": "iptv-crawler",
+  "version": "1.0.0",
+  "private": true,
+  "description": "央视+卫视直播源自动抓取/测速/聚合 Cloudflare Worker",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node .temp/smoke-test.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^3.80.0"
+  }
+}
