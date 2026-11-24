@@ -1,1 +1,33 @@
+# 推送到 main 分支时自动部署到 Cloudflare Workers
+# 前置条件：
+#   1. wrangler.toml 里已填入真实 KV id（npx wrangler kv namespace create KV 的输出）
+#   2. 仓库 Settings → Secrets and variables → Actions → 已添加 CLOUDFLARE_API_TOKEN
+#      （Cloudflare 控制台 → My Profile → API Tokens → 用 "Edit Cloudflare Workers" 模板创建）
+name: Deploy to Cloudflare Workers
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # 支持手动触发
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # token 只绑定一个账号时可省略；token 覆盖多账号时才需要：
+          # CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
