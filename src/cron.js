@@ -15,6 +15,7 @@ function num(v) {
 
 /** 全量抓取：抓上游 → 匹配 → 入 KV → 重建测速队列 */
 export async function doCrawl(env) {
+  if (!env?.KV) return { skipped: '未绑定 KV' };
   const maxProbe = num(env.MAX_PROBE_PER_CHANNEL) || 6;
   const queueSize = Math.max(num(env.MAX_PROBE_PER_CHANNEL) || 6, 300);
 
@@ -48,6 +49,7 @@ export async function doCrawl(env) {
 
 /** 测速分片：没有数据先抓取；否则测一批并写回 */
 export async function doCheck(env) {
+  if (!env?.KV) return { skipped: '未绑定 KV' };
   const batch = num(env.CHECK_BATCH) || 30;
   const timeoutMs = num(env.CHECK_TIMEOUT_MS) || 3500;
   const maxProbe = num(env.MAX_PROBE_PER_CHANNEL) || 6;
@@ -75,9 +77,14 @@ export async function doCheck(env) {
   return { checked: data.check.last_count, left: rest.length };
 }
 
-/** 读取数据（HTTP 输出用） */
+/** 读取数据（HTTP 输出用）；KV 未绑定或读失败时返回 null，订阅会自动回退到基线 */
 export async function getData(env) {
-  const raw = await env.KV.get(DATA_KEY);
-  if (!raw) return null;
-  try { return JSON.parse(raw); } catch (_) { return null; }
+  try {
+    if (!env?.KV) return null;
+    const raw = await env.KV.get(DATA_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (_) {
+    return null;
+  }
 }

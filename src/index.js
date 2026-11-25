@@ -5,6 +5,7 @@
 // ============================================================
 import { renderM3U, renderTXT, renderHome } from './render.js';
 import { doCrawl, doCheck, getData } from './cron.js';
+import { BASELINE, BASELINE_UPDATED } from './baseline.js';
 
 function num(v) {
   const n = parseInt(v, 10);
@@ -34,40 +35,40 @@ export default {
 
         case path === '/index.m3u' || path === '/m3u' || path === '/tv.m3u': {
           const data = await getData(env);
-          if (!data) return new Response('#EXTM3U\n# 首次部署后请等待定时任务抓取，或访问 /api/refresh?token=... 手动触发\n', {
-            headers: { 'Content-Type': 'audio/x-mpegurl; charset=utf-8' },
-          });
           return new Response(renderM3U(data, maxSources, epgUrl), {
             headers: {
               'Content-Type': 'audio/x-mpegurl; charset=utf-8',
               'Access-Control-Allow-Origin': '*',
-              'Cache-Control': 'max-age=600',
+              'Cache-Control': 'max-age=300',
             },
           });
         }
 
         case path === '/index.txt' || path === '/txt': {
           const data = await getData(env);
-          if (!data) return new Response('首次部署后请等待定时任务抓取\n', {
-            headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-          });
           return new Response(renderTXT(data, maxSources), {
             headers: {
               'Content-Type': 'text/plain; charset=utf-8',
               'Access-Control-Allow-Origin': '*',
-              'Cache-Control': 'max-age=600',
+              'Cache-Control': 'max-age=300',
             },
           });
         }
 
         case path === '/api/status':
-          return json(await getData(env) || { empty: true });
+          return json({
+            baseline: { updated_at: BASELINE_UPDATED, channels: (BASELINE || []).length },
+            cloud: (await getData(env)) || { empty: true },
+          });
 
         case path === '/api/refresh': {
           const token = url.searchParams.get('token') || '';
           const expected = env.REFRESH_TOKEN || '';
           if (!expected || token !== expected) {
             return json({ ok: false, error: 'token 无效。请先 wrangler secret put REFRESH_TOKEN' }, 403);
+          }
+          if (!env.KV) {
+            return json({ ok: false, error: '未绑定 KV 命名空间，云端抓取不可用；订阅仍使用本地实测基线' }, 503);
           }
           ctx.waitUntil(doCrawl(env).catch(() => {}));
           return json({ ok: true, msg: '抓取任务已触发，结果稍后可在 / 查看' });
